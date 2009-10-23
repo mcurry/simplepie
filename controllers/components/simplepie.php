@@ -20,7 +20,15 @@ class SimplepieComponent extends Object {
     $this->cache = CACHE . 'rss' . DS;
   }
 
-  function feed($feed_url) {
+  function feed($feed_url, $options=array()) {
+		$options = array_merge(array('start' => 0, 'length' => 10, 'cache' => true, 'fields' => array('title', 'permalink')), $options);
+		
+		if($options['cache']) {
+			$items = Cache::read(md5($feed_url));
+			if ($items !== false) {
+				return $items;
+			}
+		}
     
     //make the cache dir if it doesn't exist
     if (!file_exists($this->cache)) {
@@ -39,7 +47,21 @@ class SimplepieComponent extends Object {
     $feed->init();
 
     //get the feed items
-    $items = $feed->get_items();
+    $items = $feed->get_items($options['start'], $options['length']);
+		
+		if($options['cache']) {
+			$cache = array();
+			foreach($items as $item) {
+				$holder = array();
+				foreach($options['fields'] as $field) {
+					$holder[$field] = $item->{"get_$field"}();
+				}
+				$cache[] = $holder;
+			}
+			
+			Cache::write(md5($feed_url), $cache);
+			return $cache;
+		}
 
     //return
     if ($items) {
